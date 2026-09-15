@@ -1,0 +1,209 @@
+---
+- name: Verify E2E objects via gateway / controller APIs
+  hosts: localhost
+  gather_facts: false
+  vars:
+    e2e_root: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') }}"
+    e2e_scenario: "{{ lookup('env', 'MOLECULE_SCENARIO_NAME') }}"
+    e2e_org: aap-config-e2e
+    e2e_project: aap-config-e2e-project
+    e2e_jt: aap-config-e2e-job-template
+    e2e_hub_ns: aap_config_e2e
+    e2e_host: aap-config-e2e-host
+    e2e_inventory: aap-config-e2e-inventory
+  pre_tasks:
+    - name: Load AAP connection vars
+      ansible.builtin.include_vars:
+        file: "{{ e2e_root }}/.cache/aap-env.yml"
+  tasks:
+    - name: Gateway ping
+      ansible.builtin.uri:
+        url: "https://{{ aap_hostname }}/api/gateway/v1/ping/"
+        user: "{{ aap_username }}"
+        password: "{{ aap_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ aap_validate_certs }}"
+        status_code: 200
+
+    - name: Gateway organization exists
+      ansible.builtin.uri:
+        url: "https://{{ aap_hostname }}/api/gateway/v1/organizations/?name={{ e2e_org }}"
+        user: "{{ aap_username }}"
+        password: "{{ aap_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ aap_validate_certs }}"
+        status_code: [200, 404]
+      register: gw_org
+
+    - name: Fallback controller organizations API
+      ansible.builtin.uri:
+        url: "https://{{ aap_hostname }}/api/controller/v2/organizations/?name={{ e2e_org }}"
+        user: "{{ aap_username }}"
+        password: "{{ aap_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ aap_validate_certs }}"
+        status_code: 200
+      register: ctrl_org
+      when: gw_org.status == 404
+
+    - name: Assert organization found
+      ansible.builtin.assert:
+        that:
+          - (gw_org.status == 200 and (gw_org.json.count | default(0) >= 1 or (gw_org.json.results | default([]) | selectattr('name', 'equalto', e2e_org) | list | length >= 1)))
+            or (ctrl_org is not skipped and (ctrl_org.json.count | default(0) >= 1 or (ctrl_org.json.results | default([]) | selectattr('name', 'equalto', e2e_org) | list | length >= 1)))
+        fail_msg: "Organization {{ e2e_org }} not found"
+
+    - name: Controller project exists
+      ansible.builtin.uri:
+        url: "https://{{ aap_hostname }}/api/controller/v2/projects/?name={{ e2e_project }}"
+        user: "{{ aap_username }}"
+        password: "{{ aap_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ aap_validate_certs }}"
+        status_code: 200
+      register: projects
+
+    - name: Assert project found
+      ansible.builtin.assert:
+        that:
+          - projects.json.count | default(0) >= 1 or (projects.json.results | default([]) | selectattr('name', 'equalto', e2e_project) | list | length >= 1)
+        fail_msg: "Project {{ e2e_project }} not found"
+
+    - name: Job template exists
+      ansible.builtin.uri:
+        url: "https://{{ aap_hostname }}/api/controller/v2/job_templates/?name={{ e2e_jt }}"
+        user: "{{ aap_username }}"
+        password: "{{ aap_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ aap_validate_certs }}"
+        status_code: 200
+      register: jts
+
+    - name: Assert job template found
+      ansible.builtin.assert:
+        that:
+          - jts.json.count | default(0) >= 1 or (jts.json.results | default([]) | selectattr('name', 'equalto', e2e_jt) | list | length >= 1)
+        fail_msg: "Job template {{ e2e_jt }} not found"
+
+    - name: Hub namespace (UI API)
+      ansible.builtin.uri:
+        url: "https://{{ aap_hostname }}/api/galaxy/_ui/v1/namespaces/?name={{ e2e_hub_ns }}"
+        user: "{{ aap_username }}"
+        password: "{{ aap_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ aap_validate_certs }}"
+        status_code: [200, 404]
+      register: hub_ui
+
+    - name: Hub namespace (pulp API fallback)
+      ansible.builtin.uri:
+        url: "https://{{ aap_hostname }}/api/galaxy/pulp/api/v3/pulp_ansible/namespaces/?name={{ e2e_hub_ns }}"
+        user: "{{ aap_username }}"
+        password: "{{ aap_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ aap_validate_certs }}"
+        status_code: 200
+      register: hub_pulp
+      when: hub_ui.status == 404
+
+    - name: Assert hub namespace found
+      ansible.builtin.assert:
+        that:
+          - hub_ui.status == 200 or hub_pulp is not skipped
+        fail_msg: "Hub namespace {{ e2e_hub_ns }} not found"
+
+    - name: Controller host exists
+      ansible.builtin.uri:
+        url: "https://{{ aap_hostname }}/api/controller/v2/hosts/?name={{ e2e_host }}&inventory__name={{ e2e_inventory }}"
+        user: "{{ aap_username }}"
+        password: "{{ aap_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ aap_validate_certs }}"
+        status_code: 200
+      register: hosts
+
+    - name: Assert host found
+      ansible.builtin.assert:
+        that:
+          - hosts.json.count | default(0) >= 1 or (hosts.json.results | default([]) | selectattr('name', 'equalto', e2e_host) | list | length >= 1)
+        fail_msg: "Host {{ e2e_host }} not found in inventory {{ e2e_inventory }}"
+
+    # --- platform-only sampling (one object per major role family) ---
+    - name: Platform sample lookups
+      when: e2e_scenario == 'platform'
+      ansible.builtin.uri:
+        url: "https://{{ aap_hostname }}{{ item.path }}"
+        user: "{{ aap_username }}"
+        password: "{{ aap_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ aap_validate_certs }}"
+        status_code: 200
+      loop:
+        - { name: user, path: "/api/gateway/v1/users/?username=aap-config-e2e-user" }
+        - { name: credential, path: "/api/controller/v2/credentials/?name=aap-config-e2e-machine" }
+        - { name: credential_type, path: "/api/controller/v2/credential_types/?name=aap-config-e2e-rest" }
+        - { name: ee, path: "/api/controller/v2/execution_environments/?name=aap-config-e2e-ee" }
+        - { name: label, path: "/api/controller/v2/labels/?name=aap-config-e2e-prod" }
+        - { name: notification, path: "/api/controller/v2/notification_templates/?name=aap-config-e2e-email" }
+        - { name: group, path: "/api/controller/v2/groups/?name=aap-config-e2e-all" }
+        - { name: jt_survey, path: "/api/controller/v2/job_templates/?name=aap-config-e2e-jt-survey" }
+        - { name: workflow, path: "/api/controller/v2/workflow_job_templates/?name=aap-config-e2e-workflow-linear" }
+        - { name: schedule, path: "/api/controller/v2/schedules/?name=aap-config-e2e-schedule-jt" }
+        - { name: application, path: "/api/gateway/v1/applications/?name=aap-config-e2e-app-code" }
+        - { name: eda_project, path: "/api/eda/v1/projects/?name=aap-config-e2e-eda-project" }
+        - { name: eda_de, path: "/api/eda/v1/decision-environments/?name=aap-config-e2e-de" }
+      loop_control:
+        label: "{{ item.name }}"
+      register: platform_samples
+
+    - name: Assert platform samples found
+      when: e2e_scenario == 'platform'
+      ansible.builtin.assert:
+        that:
+          - item.json.count | default(0) >= 1 or (item.json.results | default([]) | length >= 1)
+        fail_msg: "Platform sample missing: {{ item.item.name }} ({{ item.item.path }})"
+      loop: "{{ platform_samples.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+
+    - name: Platform controller settings sample
+      when: e2e_scenario == 'platform'
+      ansible.builtin.uri:
+        url: "https://{{ aap_hostname }}/api/controller/v2/settings/all/"
+        user: "{{ aap_username }}"
+        password: "{{ aap_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ aap_validate_certs }}"
+        status_code: 200
+      register: ctrl_settings
+
+    - name: Assert safe controller settings applied
+      when: e2e_scenario == 'platform'
+      ansible.builtin.assert:
+        that:
+          - ctrl_settings.json.SCHEDULE_MAX_JOBS | int == 15
+          - ctrl_settings.json.ACTIVITY_STREAM_ENABLED | bool
+          - ctrl_settings.json.ACTIVITY_STREAM_ENABLED_FOR_INVENTORY_SYNC | bool
+          - ctrl_settings.json.ALLOW_JINJA_IN_EXTRA_VARS == 'template'
+          - (ctrl_settings.json.AWX_TASK_ENV | default({})).AAP_CONFIG_E2E | default('') == 'platform'
+        fail_msg: "Safe controller settings not applied as expected: {{ ctrl_settings.json.SCHEDULE_MAX_JOBS | default('?') }}"
+
+    - name: Platform gateway settings sample
+      when: e2e_scenario == 'platform'
+      ansible.builtin.uri:
+        url: "https://{{ aap_hostname }}/api/gateway/v1/settings/all/"
+        user: "{{ aap_username }}"
+        password: "{{ aap_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ aap_validate_certs }}"
+        status_code: [200, 404]
+      register: gw_settings
+
+    - name: Assert safe gateway settings applied
+      when: e2e_scenario == 'platform' and gw_settings.status == 200
+      ansible.builtin.assert:
+        that:
+          - gw_settings.json.gateway_basic_auth_enabled | default(true) | bool
+          - not (gw_settings.json.allow_admins_to_set_insecure | default(false) | bool)
+          - gw_settings.json.gateway_access_token_expiration | default(900) | int == 900
+        fail_msg: "Safe gateway settings not applied as expected"

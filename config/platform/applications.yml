@@ -1,0 +1,18 @@
+---
+aap_applications:
+  - name: aap-config-e2e-app-password
+    organization: aap-config-e2e
+    description: Password-grant public application
+    authorization_grant_type: password
+    client_type: public
+    skip_authorization: true
+    state: "{{ e2e_state | default('present') }}"
+  - name: aap-config-e2e-app-code
+    organization: aap-config-e2e
+    description: Authorization-code confidential application
+    authorization_grant_type: authorization-code
+    client_type: confidential
+    redirect_uris:
+      - https://example.com/api/v2/
+      - https://example.com/callback
+    state: "{{ e2e_state | default('present') }}"

@@ -1,0 +1,166 @@
+---
+# Provision CRC (create or start if stopped) and AAP.
+# Invoked by Molecule create — must be idempotent and must not no-op when CRC is off.
+
+- name: Skip platform provisioning
+  ansible.builtin.debug:
+    msg: >-
+      aap_e2e_skip_provision=true — not creating/starting CRC or AAP.
+      Unset AAP_E2E_SKIP_PROVISION to provision.
+  when: aap_e2e_skip_provision | bool
+
+- name: Provision CRC and AAP
+  when: not aap_e2e_skip_provision | bool
+  block:
+    - name: Ensure env output directory exists
+      ansible.builtin.file:
+        path: "{{ aap_e2e_env_path | dirname }}"
+        state: directory
+        mode: "0755"
+
+    - name: Include aap-demo resolution
+      ansible.builtin.include_tasks: resolve_aap_demo.yml
+
+    - name: Read CRC status JSON
+      ansible.builtin.command:
+        cmd: crc status -o json
+      register: aap_e2e_crc_status_raw
+      changed_when: false
+      failed_when: false
+      when: aap_e2e_provision_crc | bool
+
+    - name: Parse CRC status
+      ansible.builtin.set_fact:
+        aap_e2e_crc_status: >-
+          {{
+            (
+              aap_e2e_crc_status_raw.stdout | default('{}') | from_json
+            ).crcStatus | default('Unknown')
+            if (aap_e2e_crc_status_raw.rc | default(1) == 0)
+            else 'Unknown'
+          }}
+      when: aap_e2e_provision_crc | bool
+
+    - name: Default CRC status when CRC provision disabled
+      ansible.builtin.set_fact:
+        aap_e2e_crc_status: Running
+      when: not aap_e2e_provision_crc | bool
+
+    - name: Show CRC status
+      ansible.builtin.debug:
+        msg: "CRC status={{ aap_e2e_crc_status }}"
+
+    - name: Check cluster accessibility (short timeout)
+      ansible.builtin.command:
+        cmd: kubectl get ns --request-timeout=10s
+      environment:
+        KUBECONFIG: "{{ aap_e2e_kubeconfig }}"
+      register: aap_e2e_kubectl_check
+      changed_when: false
+      failed_when: false
+
+    - name: Require pull secret when CRC is not yet created
+      ansible.builtin.stat:
+        path: "{{ aap_e2e_pull_secret_path }}"
+      register: aap_e2e_pull_secret
+      when:
+        - aap_e2e_provision_crc | bool
+        - aap_e2e_crc_status not in ['Running', 'Stopped']
+
+    - name: Fail when pull secret missing for first-time CRC create
+      ansible.builtin.fail:
+        msg: >-
+          OpenShift pull secret required for first-time CRC setup.
+          Copy it to {{ aap_e2e_pull_secret_path }}
+          (see projects/aap-demo/README.md).
+      when:
+        - aap_e2e_provision_crc | bool
+        - aap_e2e_crc_status not in ['Running', 'Stopped']
+        - not aap_e2e_pull_secret.stat.exists | default(false)
+
+    # Stopped cluster: start it (aap-demo create exits early only when Running).
+    - name: Start stopped CRC cluster (aap-demo start)
+      ansible.builtin.command:
+        argv: "{{ aap_e2e_demo_argv + ['start'] }}"
+      environment: "{{ aap_e2e_demo_environment }}"
+      async: "{{ aap_e2e_deploy_timeout }}"
+      poll: 15
+      register: aap_e2e_crc_start
+      when:
+        - aap_e2e_provision_crc | bool
+        - aap_e2e_crc_status == 'Stopped'
+
+    # Missing / unknown cluster: full create (includes crc start).
+    - name: Create CRC cluster (aap-demo create)
+      ansible.builtin.command:
+        argv: "{{ aap_e2e_demo_argv + ['create'] }}"
+      environment: "{{ aap_e2e_demo_environment }}"
+      async: "{{ aap_e2e_deploy_timeout }}"
+      poll: 15
+      register: aap_e2e_crc_create
+      when:
+        - aap_e2e_provision_crc | bool
+        - aap_e2e_crc_status not in ['Running', 'Stopped']
+
+    - name: Re-check cluster after CRC create/start
+      ansible.builtin.command:
+        cmd: kubectl get ns --request-timeout=15s
+      environment:
+        KUBECONFIG: "{{ aap_e2e_kubeconfig }}"
+      register: aap_e2e_kubectl_after
+      changed_when: false
+      failed_when: false
+      when:
+        - aap_e2e_provision_crc | bool
+        - aap_e2e_crc_status != 'Running' or aap_e2e_kubectl_check.rc | default(1) != 0
+
+    - name: Warn if cluster still unreachable (ensure/deploy will retry CRC start)
+      ansible.builtin.debug:
+        msg: >-
+          Cluster still unreachable after CRC provision
+          (status was {{ aap_e2e_crc_status }}).
+          Continuing to aap_e2e_ensure / aap-demo deploy which starts CRC if needed.
+      when:
+        - aap_e2e_provision_crc | bool
+        - not (
+            (aap_e2e_kubectl_check.rc | default(1) == 0)
+            or (aap_e2e_kubectl_after is defined and aap_e2e_kubectl_after.rc | default(1) == 0)
+          )
+
+    - name: Ensure CRC and AAP are healthy (writes {{ aap_e2e_env_path }})
+      aap_e2e_ensure:
+        write_env: "{{ aap_e2e_env_path }}"
+        timeout: "{{ aap_e2e_deploy_timeout }}"
+        provision_aap: "{{ aap_e2e_provision_aap | bool }}"
+      # Run synchronously: module async + subprocess output breaks JSON parsing.
+      # aap_e2e_deploy_timeout is passed to the module for deploy polling.
+      register: aap_e2e_ensure_result
+
+    - name: Assert AAP env file was written
+      ansible.builtin.stat:
+        path: "{{ aap_e2e_env_path }}"
+      register: aap_e2e_env_written
+
+    - name: Require env file after provision
+      ansible.builtin.assert:
+        that: aap_e2e_env_written.stat.exists
+        fail_msg: "Platform ensure did not write {{ aap_e2e_env_path }}"
+
+- name: Export env from running platform when provision skipped
+  when: aap_e2e_skip_provision | bool
+  block:
+    - name: Write connection vars from running cluster
+      aap_e2e_export_env:
+        write_env: "{{ aap_e2e_env_path }}"
+
+    - name: Assert env file exists after export
+      ansible.builtin.stat:
+        path: "{{ aap_e2e_env_path }}"
+      register: aap_e2e_env_exported
+
+    - name: Require env file when skipping provision
+      ansible.builtin.assert:
+        that: aap_e2e_env_exported.stat.exists
+        fail_msg: >-
+          {{ aap_e2e_env_path }} missing. Run molecule create without
+          AAP_E2E_SKIP_PROVISION or: python -m aap_configuration_e2e ensure

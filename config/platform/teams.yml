@@ -1,0 +1,10 @@
+---
+aap_teams:
+  - name: aap-config-e2e-team
+    organization: aap-config-e2e
+    description: Primary E2E team
+    state: "{{ e2e_state | default('present') }}"
+  - name: aap-config-e2e-ops
+    organization: aap-config-e2e
+    description: Ops team for RBAC variants
+    state: "{{ e2e_state | default('present') }}"

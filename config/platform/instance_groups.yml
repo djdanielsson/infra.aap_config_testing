@@ -1,0 +1,8 @@
+---
+# Dedicated IG that does not claim control-plane instances.
+controller_instance_groups:
+  - name: aap-config-e2e-ig
+    policy_instance_percentage: 0
+    policy_instance_minimum: 0
+    is_container_group: false
+    state: "{{ e2e_state | default('present') }}"

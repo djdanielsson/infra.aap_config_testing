@@ -1,0 +1,24 @@
+---
+# Molecule create limits to the platform hostname. Platform is "localhost".
+- name: Provision CRC and AAP (Molecule create)
+  hosts: localhost
+  gather_facts: false
+  vars:
+    # Prefer project venv so custom modules can import aap_configuration_e2e.
+    ansible_python_interpreter: >-
+      {{ lookup('env', 'ANSIBLE_PYTHON_INTERPRETER')
+         | default(lookup('env', 'MOLECULE_PROJECT_DIRECTORY') ~ '/.venv/bin/python', true) }}
+  tasks:
+    - name: Show that create is running on localhost
+      ansible.builtin.debug:
+        msg: >-
+          Starting platform create
+          (python={{ ansible_python_interpreter }},
+          skip={{ aap_e2e_skip_provision | default(false) }},
+          crc={{ aap_e2e_provision_crc | default(true) }},
+          aap={{ aap_e2e_provision_aap | default(true) }})
+
+    - name: Run aap_e2e_platform create
+      ansible.builtin.include_role:
+        name: aap_e2e_platform
+        tasks_from: create.yml

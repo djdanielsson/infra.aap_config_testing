@@ -1,0 +1,34 @@
+---
+- name: Apply infra.aap_configuration config
+  hosts: localhost
+  gather_facts: false
+  vars:
+    e2e_root: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') }}"
+    e2e_scenario: "{{ lookup('env', 'MOLECULE_SCENARIO_NAME') }}"
+    e2e_state: present
+    platform_state: "{{ e2e_state }}"
+    aap_configuration_collect_logs: true
+    aap_configuration_async_delay: 3
+    assign_default_ee_to_org: false
+    assign_galaxy_credentials_to_org: false
+    assign_notification_templates_to_org: false
+    assign_instance_groups_to_org: false
+  pre_tasks:
+    - name: Load AAP connection vars
+      ansible.builtin.include_vars:
+        file: "{{ e2e_root }}/.cache/aap-env.yml"
+
+    - name: Load scenario config
+      ansible.builtin.include_vars:
+        dir: "{{ e2e_root }}/config/{{ e2e_scenario }}"
+        extensions: [yml, yaml]
+
+    - name: Require hostname and password
+      ansible.builtin.assert:
+        that:
+          - aap_hostname | length > 0
+          - aap_password | length > 0
+  tasks:
+    - name: Dispatch configuration
+      ansible.builtin.include_role:
+        name: infra.aap_configuration.dispatch

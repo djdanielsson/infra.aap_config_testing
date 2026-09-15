@@ -1,0 +1,9 @@
+---
+controller_templates:
+  - name: aap-config-e2e-job-template
+    organization: aap-config-e2e
+    project: aap-config-e2e-project
+    inventory: aap-config-e2e-inventory
+    playbook: helloworld.yml
+    job_type: run
+    state: "{{ e2e_state | default('present') }}"

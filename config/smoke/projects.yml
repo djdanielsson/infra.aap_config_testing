@@ -1,0 +1,10 @@
+---
+controller_projects:
+  - name: aap-config-e2e-project
+    organization: aap-config-e2e
+    scm_type: git
+    scm_url: https://github.com/ansible/tower-example.git
+    scm_branch: master
+    wait: true
+    update_project: true
+    state: "{{ e2e_state | default('present') }}"

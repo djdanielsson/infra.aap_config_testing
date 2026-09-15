@@ -1,0 +1,8 @@
+.venv/
+.cache/
+*.pyc
+__pycache__/
+.pytest_cache/
+.molecule/
+*.egg-info/
+*.tar.gz

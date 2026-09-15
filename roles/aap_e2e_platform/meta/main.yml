@@ -1,0 +1,7 @@
+---
+galaxy_info:
+  role_name: aap_e2e_platform
+  description: Provision and tear down CRC/AAP for infra.aap_configuration Molecule E2E tests.
+  license: MIT
+  min_ansible_version: 2.16.0
+dependencies: []

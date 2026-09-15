@@ -1,0 +1,17 @@
+---
+gateway_role_user_assignments:
+  - role_definition: Organization Admin
+    user: "{{ aap_username | default('admin') }}"
+    object_ids:
+      - aap-config-e2e
+    state: "{{ e2e_state | default('present') }}"
+  - role_definition: Organization Member
+    user: aap-config-e2e-user
+    object_ids:
+      - aap-config-e2e
+    state: "{{ e2e_state | default('present') }}"
+  - role_definition: Organization Auditor
+    user: aap-config-e2e-auditor
+    object_ids:
+      - aap-config-e2e
+    state: "{{ e2e_state | default('present') }}"

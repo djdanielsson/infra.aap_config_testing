@@ -1,0 +1,6 @@
+---
+controller_inventories:
+  - name: aap-config-e2e-inventory
+    organization: aap-config-e2e
+    description: E2E inventory
+    state: "{{ e2e_state | default('present') }}"

@@ -1,0 +1,8 @@
+---
+# Safe gateway settings only — keep basic auth on (Molecule uses it).
+# Do not change proxy URL, token name, or password policy here.
+gateway_settings:
+  gateway_basic_auth_enabled: true
+  allow_admins_to_set_insecure: false
+  # Mild token TTL (seconds); basic auth remains available for the harness
+  gateway_access_token_expiration: 900

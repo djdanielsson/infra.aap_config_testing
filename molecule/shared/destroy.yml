@@ -1,0 +1,19 @@
+---
+- name: Tear down CRC and/or AAP (Molecule destroy)
+  hosts: localhost
+  gather_facts: false
+  vars:
+    ansible_python_interpreter: >-
+      {{ lookup('env', 'ANSIBLE_PYTHON_INTERPRETER')
+         | default(lookup('env', 'MOLECULE_PROJECT_DIRECTORY') ~ '/.venv/bin/python', true) }}
+  tasks:
+    - name: Show destroy options
+      ansible.builtin.debug:
+        msg: >-
+          destroy_aap={{ aap_e2e_destroy_aap | default(false) }},
+          destroy_crc={{ aap_e2e_destroy_crc | default(false) }}
+
+    - name: Run aap_e2e_platform destroy
+      ansible.builtin.include_role:
+        name: aap_e2e_platform
+        tasks_from: destroy.yml

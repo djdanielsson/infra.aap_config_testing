@@ -1,0 +1,23 @@
+---
+controller_schedules:
+  - name: aap-config-e2e-schedule-jt
+    description: Disabled daily schedule on fixed JT
+    unified_job_template: aap-config-e2e-jt-fixed
+    rrule: "DTSTART:20260101T000000Z RRULE:FREQ=DAILY;INTERVAL=1"
+    enabled: false
+    extra_data:
+      e2e_scheduled: true
+    state: "{{ e2e_state | default('present') }}"
+  - name: aap-config-e2e-schedule-wf
+    description: Disabled hourly schedule on workflow
+    unified_job_template: aap-config-e2e-workflow-linear
+    rrule: "DTSTART:20260101T000000Z RRULE:FREQ=HOURLY;INTERVAL=6"
+    enabled: false
+    state: "{{ e2e_state | default('present') }}"
+  # Compat name
+  - name: aap-config-e2e-schedule
+    description: Compat schedule on classic JT
+    unified_job_template: aap-config-e2e-job-template
+    rrule: "DTSTART:20260101T000000Z RRULE:FREQ=DAILY;INTERVAL=1"
+    enabled: false
+    state: "{{ e2e_state | default('present') }}"

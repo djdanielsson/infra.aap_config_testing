@@ -1,0 +1,23 @@
+---
+# Shared Molecule state placeholder. Primary scenarios: smoke, platform.
+dependency:
+  name: galaxy
+  enabled: false
+driver:
+  name: default
+platforms:
+  - name: localhost
+provisioner:
+  name: ansible
+  playbooks:
+    create: ../shared/create.yml
+    prepare: ../shared/prepare.yml
+    converge: ../shared/converge.yml
+    verify: ../shared/verify.yml
+    cleanup: ../shared/cleanup.yml
+    destroy: ../shared/destroy.yml
+scenario:
+  test_sequence:
+    - destroy
+    - create
+    - destroy

@@ -1,0 +1,16 @@
+---
+controller_bulk_hosts:
+  - inventory: aap-config-e2e-inventory
+    hosts:
+      - name: aap-config-e2e-bulk-01
+        variables:
+          ansible_connection: local
+          e2e_bulk: true
+      - name: aap-config-e2e-bulk-02
+        variables:
+          ansible_connection: local
+          e2e_bulk: true
+      - name: aap-config-e2e-bulk-03
+        variables:
+          ansible_connection: local
+          e2e_bulk: true

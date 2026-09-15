@@ -1,0 +1,5 @@
+# Python libraries required by Ansible collections used in converge/verify.
+# Installed via pyproject.toml / make install — keep in sync when adding collections.
+requests>=2.28.0
+pytz
+python-dateutil>=2.7.0

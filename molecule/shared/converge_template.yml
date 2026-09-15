@@ -1,0 +1,126 @@
+---
+# Sanity check: apply aap_configuration_template (config/all + config/<env>) via dispatch.
+# Set AAP_CONFIGURATION_TEMPLATE_PATH to your template repo (default: ../../forks/aap_configuration_template).
+
+- name: Apply aap_configuration_template via dispatch
+  hosts: localhost
+  gather_facts: false
+  vars:
+    e2e_root: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') }}"
+    aap_config_template_path: "{{ lookup('env', 'AAP_CONFIGURATION_TEMPLATE_PATH') | default(e2e_root ~ '/../../forks/aap_configuration_template', true) }}"
+    aap_config_env: "{{ lookup('env', 'AAP_CONFIG_ENV') | default('dev', true) }}"
+    aap_configuration_collect_logs: true
+    aap_configuration_async_delay: 3
+    assign_default_ee_to_org: false
+    assign_galaxy_credentials_to_org: false
+    assign_notification_templates_to_org: false
+    assign_instance_groups_to_org: false
+  pre_tasks:
+    - name: Load AAP connection vars
+      ansible.builtin.include_vars:
+        file: "{{ e2e_root }}/.cache/aap-env.yml"
+
+    - name: Require hostname and password
+      ansible.builtin.assert:
+        that:
+          - aap_hostname | length > 0
+          - aap_password | length > 0
+
+    - name: Locate template config directory
+      ansible.builtin.stat:
+        path: "{{ aap_config_template_path }}/config"
+      register: template_config_stat
+
+    - name: Require aap_configuration_template
+      ansible.builtin.assert:
+        that: template_config_stat.stat.exists
+        fail_msg: >-
+          Template config not found at {{ aap_config_template_path }}/config
+          (set AAP_CONFIGURATION_TEMPLATE_PATH to your aap_configuration_template clone).
+
+    # Template config YAML references inventory/secrets vars (env, hub_token_*, scm_branch, …).
+    - name: Set template runtime context
+      ansible.builtin.set_fact:
+        env: "{{ aap_config_env }}"
+        scm_branch: main
+        hub_token_username: "{{ aap_username }}"
+        hub_token: ""
+        hub_api_user_pass: "{{ aap_password }}"
+        aap_pass: "{{ aap_password }}"
+        root_machine_pass: "{{ aap_password }}"
+        vault_pass: "{{ aap_password }}"
+
+  tasks:
+    - name: Load template vars (aap_config_vars)
+      aap_config_vars:
+        config_dir: "{{ aap_config_template_path }}/config"
+        playbook_dir: "{{ aap_config_template_path }}/playbooks"
+        env: "{{ aap_config_env }}"
+        changed_only: false
+        # Use .cache/aap-env.yml credentials; skip vault secrets.yml from the template.
+        always_load: []
+
+    - name: Reload platform connection vars over template facts
+      ansible.builtin.include_vars:
+        file: "{{ e2e_root }}/.cache/aap-env.yml"
+
+    # Wildcard merge breaks when *_all is a dict and empty *_dev is [] (controller_settings, controller_license).
+    - name: Normalize controller_settings dev override for wildcard merge
+      when: controller_settings_dev | default([]) == []
+      ansible.builtin.set_fact:
+        controller_settings_dev: {}
+
+    - name: Normalize controller_license dev override for wildcard merge
+      when: controller_license_dev | default([]) == []
+      ansible.builtin.set_fact:
+        controller_license_dev: {}
+
+    # controller_workflow_launch.yml historically overwrote controller_projects_all with [].
+    - name: Restore controller projects when missing after config load
+      when: controller_projects_all | default([]) | length == 0
+      ansible.builtin.include_vars:
+        file: "{{ aap_config_template_path }}/config/all/controller_projects.yml"
+
+    # EDA decision environments pull from the platform registry; default container-registry host is quay.io.
+    # Keep structured data (do not fold through >- / stringification — wildcard merge then fails).
+    - name: Patch EDA hub registry credential host for local platform
+      when: eda_credentials_all is defined
+      vars:
+        _hub_cred: "{{ eda_credentials_all | selectattr('name', 'equalto', 'hub') | list }}"
+        _other_creds: "{{ eda_credentials_all | rejectattr('name', 'equalto', 'hub') | list }}"
+        _hub_patched: >-
+          {{
+            [_hub_cred | first | combine(
+              {'inputs': (_hub_cred | first).inputs | default({}) | combine({'host': aap_hostname})},
+              recursive=True
+            )]
+            if (_hub_cred | length > 0) else []
+          }}
+      ansible.builtin.set_fact:
+        eda_credentials_all: "{{ _other_creds + _hub_patched }}"
+
+    # Stock template ships gateway_settings_{all,dev}: {} placeholders. Wildcard merge leaves
+    # gateway_settings defined-but-empty, which still triggers the role and fails module validation.
+    - name: Build dispatcher exclude roles for template placeholders
+      ansible.builtin.set_fact:
+        _template_dispatcher_exclude_roles: >-
+          {{
+            ['controller_applications']
+            + (
+              ['gateway_settings']
+              if (gateway_settings_all | default({}) | combine(gateway_settings_dev | default({}), recursive=true) | length == 0)
+              else []
+            )
+            + (
+              ['controller_roles']
+              if ((((aap_teams_all | default([])) + (aap_teams_dev | default([]))) | length) == 0)
+              else []
+            )
+          }}
+
+    - name: Dispatch template configuration
+      ansible.builtin.include_role:
+        name: infra.aap_configuration.dispatch
+      vars:
+        dispatch_include_wildcard_vars: true
+        aap_configuration_dispatcher_exclude_roles: "{{ _template_dispatcher_exclude_roles }}"

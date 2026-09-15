@@ -1,0 +1,14 @@
+---
+gateway_role_team_assignments:
+  - role_definition: Organization Inventory Admin
+    team: aap-config-e2e-ops
+    assignment_objects:
+      - name: aap-config-e2e
+        type: organizations
+    state: "{{ e2e_state | default('present') }}"
+  - role_definition: Organization Member
+    team: aap-config-e2e-team
+    assignment_objects:
+      - name: aap-config-e2e
+        type: organizations
+    state: "{{ e2e_state | default('present') }}"

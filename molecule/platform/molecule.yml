@@ -1,0 +1,53 @@
+---
+# Platform E2E: same Molecule lifecycle as smoke, broader config coverage.
+#
+# Platform name is localhost so Molecule create --limit matches play hosts.
+role_name_check: 0
+dependency:
+  name: galaxy
+  enabled: false
+driver:
+  name: default
+platforms:
+  - name: localhost
+provisioner:
+  name: ansible
+  env:
+    ANSIBLE_COLLECTIONS_PATH: ${MOLECULE_PROJECT_DIRECTORY}/.cache/collections
+    ANSIBLE_CONFIG: ${MOLECULE_PROJECT_DIRECTORY}/ansible.cfg
+    ANSIBLE_PYTHON_INTERPRETER: ${MOLECULE_PROJECT_DIRECTORY}/.venv/bin/python
+    PATH: ${MOLECULE_PROJECT_DIRECTORY}/.venv/bin:${PATH}
+    AAP_CONFIGURATION_E2E_PYTHON: ${MOLECULE_PROJECT_DIRECTORY}/.venv/bin/python
+  config_options:
+    defaults:
+      gathering: explicit
+      host_key_checking: false
+      interpreter_python: ${MOLECULE_PROJECT_DIRECTORY}/.venv/bin/python
+  playbooks:
+    create: ../shared/create.yml
+    prepare: ../shared/prepare.yml
+    converge: ../shared/converge.yml
+    verify: ../shared/verify.yml
+    cleanup: ../shared/cleanup.yml
+    destroy: ../shared/destroy.yml
+  inventory:
+    host_vars:
+      localhost:
+        ansible_connection: local
+        ansible_python_interpreter: "{{ lookup('env', 'ANSIBLE_PYTHON_INTERPRETER') | default(lookup('env', 'MOLECULE_PROJECT_DIRECTORY') ~ '/.venv/bin/python', true) }}"
+    group_vars:
+      all:
+        aap_e2e_provision_crc: true
+        aap_e2e_provision_aap: true
+verifier:
+  name: ansible
+scenario:
+  test_sequence:
+    - destroy
+    - syntax
+    - create
+    - prepare
+    - converge
+    - verify
+    - cleanup
+    - destroy

@@ -1,0 +1,11 @@
+---
+controller_labels:
+  - name: aap-config-e2e
+    organization: aap-config-e2e
+    state: "{{ e2e_state | default('present') }}"
+  - name: aap-config-e2e-prod
+    organization: aap-config-e2e
+    state: "{{ e2e_state | default('present') }}"
+  - name: aap-config-e2e-dev
+    organization: aap-config-e2e
+    state: "{{ e2e_state | default('present') }}"

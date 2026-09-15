@@ -1,0 +1,6 @@
+---
+eda_event_streams:
+  - name: aap-config-e2e-event-stream
+    organization: aap-config-e2e
+    credential_name: aap-config-e2e-basic-stream
+    state: "{{ e2e_state | default('present') }}"

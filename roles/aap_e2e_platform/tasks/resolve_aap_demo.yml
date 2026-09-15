@@ -1,0 +1,72 @@
+---
+- name: Use configured aap-demo path
+  ansible.builtin.set_fact:
+    aap_e2e_demo_bin_resolved: "{{ aap_e2e_aap_demo_bin }}"
+  when: aap_e2e_aap_demo_bin | length > 0
+
+- name: Find aap-demo on PATH
+  ansible.builtin.command:
+    cmd: which aap-demo
+  register: aap_e2e_which_demo
+  changed_when: false
+  failed_when: false
+  when: aap_e2e_demo_bin_resolved is not defined
+
+- name: Use aap-demo from PATH
+  ansible.builtin.set_fact:
+    aap_e2e_demo_bin_resolved: "{{ aap_e2e_which_demo.stdout }}"
+  when:
+    - aap_e2e_demo_bin_resolved is not defined
+    - aap_e2e_which_demo.rc | default(1) == 0
+    - aap_e2e_which_demo.stdout | length > 0
+
+- name: Candidate aap-demo install locations
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  register: aap_e2e_demo_candidates
+  loop:
+    - "{{ lookup('env', 'HOME') }}/.local/bin/aap-demo"
+    - "{{ aap_e2e_project_root }}/../aap-demo/aap-demo.sh"
+    - /workspaces/workspace/projects/aap-demo/aap-demo.sh
+  when: aap_e2e_demo_bin_resolved is not defined
+
+- name: Use first existing aap-demo candidate
+  ansible.builtin.set_fact:
+    aap_e2e_demo_bin_resolved: "{{ item.stat.path }}"
+  loop: "{{ aap_e2e_demo_candidates.results | default([]) }}"
+  when:
+    - aap_e2e_demo_bin_resolved is not defined
+    - item.stat.exists | default(false)
+
+- name: aap-demo must be installed
+  ansible.builtin.fail:
+    msg: >-
+      aap-demo not found. Install from projects/aap-demo (./install.sh)
+      or set AAP_DEMO_BIN.
+  when: aap_e2e_demo_bin_resolved is not defined
+
+- name: Build aap-demo command argv
+  ansible.builtin.set_fact:
+    aap_e2e_demo_argv: >-
+      {{
+        ['bash', aap_e2e_demo_bin_resolved]
+        if aap_e2e_demo_bin_resolved.endswith('.sh')
+        else [aap_e2e_demo_bin_resolved]
+      }}
+
+- name: Build aap-demo subprocess environment
+  ansible.builtin.set_fact:
+    aap_e2e_demo_environment: >-
+      {{
+        {
+          'QUIET': 'true',
+          'KUBECONFIG': aap_e2e_kubeconfig,
+          'CRC_CPUS': aap_e2e_crc_cpus,
+          'CRC_MEMORY': aap_e2e_crc_memory_mb,
+          'CRC_DISK': aap_e2e_crc_disk_gb,
+          'CRC_PV_SIZE': aap_e2e_crc_pv_size_gb,
+          'SKIP_TEMP_SWAP': 'true',
+        }
+        | combine({'CRC_VERSION': aap_e2e_crc_version} if (aap_e2e_crc_version | length > 0) else {})
+        | combine({'AAP_DEMO_TRUST_CA': 'false'} if not aap_e2e_trust_ca else {})
+      }}

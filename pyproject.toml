@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aap-configuration-e2e"
+version = "0.1.0"
+description = "Local Molecule E2E harness for infra.aap_configuration against aap-demo AAP"
+requires-python = ">=3.11"
+dependencies = [
+  "molecule>=24.12.0",
+  "ansible-core>=2.16",
+  "pyyaml>=6.0",
+  # ansible.platform gateway modules (manager subprocess imports requests).
+  "requests>=2.28.0",
+  # ansible.controller schedule_rrule lookup (platform scenario).
+  "pytz",
+  "python-dateutil>=2.7.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8.0", "pytest-mock>=3.14"]
+
+[project.scripts]
+aap-configuration-e2e = "aap_configuration_e2e.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,131 @@
+---
+- name: Prepare (assert platform env from create)
+  hosts: localhost
+  gather_facts: false
+  vars:
+    e2e_root: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') }}"
+    e2e_env_file: "{{ e2e_root }}/.cache/aap-env.yml"
+    # Prefer AAP_E2E_LICENSE_MANIFEST; otherwise try common locations.
+    e2e_license_manifest_candidates: >-
+      {{
+        (
+          [lookup('env', 'AAP_E2E_LICENSE_MANIFEST')]
+          + [
+            lookup('env', 'HOME') ~ '/.aap-demo/manifest.zip',
+            lookup('env', 'HOME') ~ '/.aap-demo/subscription-manifest.zip',
+            e2e_root ~ '/.cache/manifest.zip',
+          ]
+        )
+        | select('string')
+        | reject('equalto', '')
+        | unique
+        | list
+      }}
+  tasks:
+    - name: Require AAP env file written by create
+      ansible.builtin.stat:
+        path: "{{ e2e_env_file }}"
+      register: e2e_env_stat
+
+    - name: Fail when create did not produce env
+      ansible.builtin.assert:
+        that: e2e_env_stat.stat.exists
+        fail_msg: >-
+          {{ e2e_env_file }} missing. Molecule create must provision CRC/AAP
+          (or export env with AAP_E2E_SKIP_PROVISION=true against a running platform).
+
+    - name: Load AAP connection vars
+      ansible.builtin.include_vars:
+        file: "{{ e2e_env_file }}"
+
+    - name: Require hostname and password from env file
+      ansible.builtin.assert:
+        that:
+          - aap_hostname is defined
+          - aap_hostname | length > 0
+          - aap_password is defined
+          - aap_password | length > 0
+        fail_msg: "{{ e2e_env_file }} is missing aap_hostname / aap_password"
+
+    - name: Stat subscription manifest candidates
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop: "{{ e2e_license_manifest_candidates }}"
+      register: e2e_manifest_stats
+
+    - name: Select first existing subscription manifest
+      ansible.builtin.set_fact:
+        e2e_license_manifest: >-
+          {{
+            (
+              e2e_manifest_stats.results
+              | selectattr('stat.exists')
+              | map(attribute='stat.path')
+              | list
+              | first
+            )
+            if (
+              e2e_manifest_stats.results
+              | selectattr('stat.exists')
+              | list
+              | length
+            ) > 0 else ''
+          }}
+
+    # Host (and some other) Controller APIs return HTTP 403 "License is missing."
+    # without a subscription manifest.
+    - name: Check Controller license is present
+      ansible.builtin.uri:
+        url: "https://{{ aap_hostname }}/api/controller/v2/config/"
+        user: "{{ aap_username | default('admin') }}"
+        password: "{{ aap_password }}"
+        validate_certs: "{{ aap_validate_certs | default(false) }}"
+        force_basic_auth: true
+        status_code: [200]
+      register: e2e_controller_config
+      no_log: true
+
+    - name: Apply Controller license from manifest when missing
+      when:
+        - (e2e_controller_config.json.license_info.instance_count | default(0) | int) == 0
+        - e2e_license_manifest | length > 0
+      block:
+        - name: Show license apply
+          ansible.builtin.debug:
+            msg: "Controller unlicensed; applying manifest {{ e2e_license_manifest }}"
+
+        - name: Install Controller subscription manifest
+          ansible.controller.license:
+            manifest: "{{ e2e_license_manifest }}"
+            force: true
+            controller_host: "{{ aap_hostname }}"
+            controller_username: "{{ aap_username | default('admin') }}"
+            controller_password: "{{ aap_password }}"
+            validate_certs: "{{ aap_validate_certs | default(false) }}"
+          no_log: true
+
+        - name: Re-check Controller license after apply
+          ansible.builtin.uri:
+            url: "https://{{ aap_hostname }}/api/controller/v2/config/"
+            user: "{{ aap_username | default('admin') }}"
+            password: "{{ aap_password }}"
+            validate_certs: "{{ aap_validate_certs | default(false) }}"
+            force_basic_auth: true
+            status_code: [200]
+          register: e2e_controller_config
+          no_log: true
+
+    - name: Require Controller subscription / license
+      ansible.builtin.assert:
+        that:
+          - (e2e_controller_config.json.license_info | default({})) is mapping
+          - (e2e_controller_config.json.license_info.instance_count | default(0) | int) > 0
+        fail_msg: >-
+          Controller has no subscription license (license_info empty / instance_count=0).
+          Host create and similar APIs return HTTP 403 "License is missing."
+          Place a Red Hat AAP subscription manifest zip at
+          {{ lookup('env', 'HOME') }}/.aap-demo/manifest.zip
+          or set AAP_E2E_LICENSE_MANIFEST=/path/to/manifest.zip, then re-run:
+          make converge
+          Candidates checked: {{ e2e_license_manifest_candidates | join(', ') }}
+          Selected: {{ e2e_license_manifest | default('(none)') }}

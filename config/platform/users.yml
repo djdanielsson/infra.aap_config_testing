@@ -1,0 +1,16 @@
+---
+aap_user_accounts:
+  - username: aap-config-e2e-user
+    password: "E2ePass123!"
+    first_name: E2E
+    last_name: User
+    email: e2e-user@example.com
+    is_superuser: false
+    state: "{{ e2e_state | default('present') }}"
+  - username: aap-config-e2e-auditor
+    password: "E2ePass123!"
+    first_name: E2E
+    last_name: Auditor
+    email: e2e-auditor@example.com
+    is_superuser: false
+    state: "{{ e2e_state | default('present') }}"

@@ -1,0 +1,31 @@
+---
+controller_groups:
+  - name: aap-config-e2e-web
+    inventory: aap-config-e2e-inventory
+    description: Web tier group
+    variables:
+      e2e_tier: web
+      ansible_connection: local
+    hosts:
+      - aap-config-e2e-host
+    state: "{{ e2e_state | default('present') }}"
+  - name: aap-config-e2e-ops
+    inventory: aap-config-e2e-inventory
+    description: Ops tier group
+    variables:
+      e2e_tier: ops
+    hosts:
+      - aap-config-e2e-host-ops
+    state: "{{ e2e_state | default('present') }}"
+  - name: aap-config-e2e-all
+    inventory: aap-config-e2e-inventory
+    description: Parent group with children
+    variables:
+      e2e_tier: all
+    children:
+      - aap-config-e2e-web
+      - aap-config-e2e-ops
+    hosts:
+      - aap-config-e2e-host
+      - aap-config-e2e-host-ops
+    state: "{{ e2e_state | default('present') }}"

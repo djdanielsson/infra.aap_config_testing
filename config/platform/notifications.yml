@@ -1,0 +1,33 @@
+---
+controller_notifications:
+  - name: aap-config-e2e-email
+    description: Email notification for platform E2E
+    organization: aap-config-e2e
+    notification_type: email
+    notification_configuration:
+      username: ""
+      password: ""
+      host: smtp.example.com
+      port: 25
+      use_ssl: false
+      use_tls: false
+      sender: e2e@example.com
+      recipients:
+        - devnull@example.com
+    messages:
+      started:
+        message: "E2E job started: {{ job_friendly_name }}"
+      success:
+        message: "E2E job success: {{ job_friendly_name }}"
+      error:
+        message: "E2E job failed: {{ job_friendly_name }}"
+    state: "{{ e2e_state | default('present') }}"
+  - name: aap-config-e2e-webhook
+    description: Webhook notification for platform E2E
+    organization: aap-config-e2e
+    notification_type: webhook
+    notification_configuration:
+      url: https://example.com/hooks/aap-config-e2e
+      http_method: POST
+      headers: {}
+    state: "{{ e2e_state | default('present') }}"

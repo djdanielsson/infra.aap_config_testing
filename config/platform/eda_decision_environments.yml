@@ -1,0 +1,13 @@
+---
+eda_decision_environments:
+  - name: aap-config-e2e-de
+    description: Public-ish DE image for create-only coverage
+    organization: aap-config-e2e
+    image_url: quay.io/ansible/ansible-rulebook:latest
+    credential: aap-config-e2e-eda-registry
+    state: "{{ e2e_state | default('present') }}"
+  - name: aap-config-e2e-de-nocred
+    description: DE without pull credential
+    organization: aap-config-e2e
+    image_url: quay.io/ansible/ansible-rulebook:latest
+    state: "{{ e2e_state | default('present') }}"

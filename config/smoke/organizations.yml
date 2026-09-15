@@ -1,0 +1,5 @@
+---
+aap_organizations:
+  - name: aap-config-e2e
+    description: Isolated org for infra.aap_configuration E2E
+    state: "{{ e2e_state | default('present') }}"

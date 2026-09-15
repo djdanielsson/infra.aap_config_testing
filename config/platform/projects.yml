@@ -1,0 +1,40 @@
+---
+controller_projects:
+  - name: aap-config-e2e-project
+    description: Primary SCM project (wait for update)
+    organization: aap-config-e2e
+    scm_type: git
+    scm_url: https://github.com/ansible/tower-example.git
+    scm_branch: master
+    scm_clean: false
+    scm_delete_on_update: false
+    scm_update_on_launch: false
+    scm_update_cache_timeout: 0
+    allow_override: true
+    wait: true
+    update_project: true
+    default_environment: aap-config-e2e-ee-missing
+    state: "{{ e2e_state | default('present') }}"
+  - name: aap-config-e2e-project-branch
+    description: Alternate branch / no wait project
+    organization: aap-config-e2e
+    scm_type: git
+    scm_url: https://github.com/ansible/tower-example.git
+    scm_branch: master
+    scm_clean: true
+    scm_update_on_launch: true
+    scm_update_cache_timeout: 120
+    allow_override: false
+    credential: aap-config-e2e-scm
+    wait: false
+    update_project: false
+    state: "{{ e2e_state | default('present') }}"
+  - name: aap-config-e2e-invsrc-project
+    description: Project used as inventory source SCM
+    organization: aap-config-e2e
+    scm_type: git
+    scm_url: https://github.com/ansible/ansible-examples.git
+    scm_branch: master
+    wait: false
+    update_project: true
+    state: "{{ e2e_state | default('present') }}"

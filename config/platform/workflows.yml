@@ -1,0 +1,69 @@
+---
+controller_workflows:
+  - name: aap-config-e2e-workflow-linear
+    description: Linear success-chain workflow
+    organization: aap-config-e2e
+    inventory: aap-config-e2e-inventory
+    allow_simultaneous: false
+    ask_variables_on_launch: false
+    ask_inventory_on_launch: false
+    ask_limit_on_launch: false
+    ask_scm_branch_on_launch: false
+    ask_labels_on_launch: false
+    ask_skip_tags_on_launch: false
+    labels:
+      - aap-config-e2e
+    notification_templates_started:
+      - aap-config-e2e-email
+    notification_templates_success:
+      - aap-config-e2e-email
+    notification_templates_error:
+      - aap-config-e2e-webhook
+    simplified_workflow_nodes:
+      - identifier: start
+        unified_job_template: aap-config-e2e-jt-fixed
+        all_parents_must_converge: false
+        success_nodes:
+          - finish
+      - identifier: finish
+        unified_job_template: aap-config-e2e-jt-check
+        all_parents_must_converge: false
+    state: "{{ e2e_state | default('present') }}"
+
+  - name: aap-config-e2e-workflow-rich
+    description: Workflow with ask flags + labels + failure path
+    organization: aap-config-e2e
+    allow_simultaneous: true
+    ask_variables_on_launch: true
+    ask_inventory_on_launch: true
+    ask_limit_on_launch: true
+    ask_labels_on_launch: true
+    ask_skip_tags_on_launch: true
+    labels:
+      - aap-config-e2e-dev
+      - aap-config-e2e-prod
+    survey_enabled: false
+    simplified_workflow_nodes:
+      - identifier: primary
+        unified_job_template: aap-config-e2e-jt-survey
+        all_parents_must_converge: false
+        success_nodes:
+          - on_success
+        failure_nodes:
+          - on_failure
+      - identifier: on_success
+        unified_job_template: aap-config-e2e-jt-fixed
+        all_parents_must_converge: false
+      - identifier: on_failure
+        unified_job_template: aap-config-e2e-jt-check
+        all_parents_must_converge: false
+    state: "{{ e2e_state | default('present') }}"
+
+  # Compat name used by older platform config / docs
+  - name: aap-config-e2e-workflow
+    description: Minimal workflow for compat
+    organization: aap-config-e2e
+    simplified_workflow_nodes:
+      - identifier: only
+        unified_job_template: aap-config-e2e-job-template
+    state: "{{ e2e_state | default('present') }}"

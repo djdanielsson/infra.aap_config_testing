@@ -1,0 +1,132 @@
+---
+controller_templates:
+  # Variant: fixed inventory / cred / EE / labels / rich options
+  - name: aap-config-e2e-jt-fixed
+    description: Fixed-options job template
+    organization: aap-config-e2e
+    project: aap-config-e2e-project
+    inventory: aap-config-e2e-inventory
+    playbook: helloworld.yml
+    job_type: run
+    credentials:
+      - aap-config-e2e-machine
+    execution_environment: aap-config-e2e-ee-missing
+    instance_groups:
+      - aap-config-e2e-ig
+    labels:
+      - aap-config-e2e
+      - aap-config-e2e-prod
+    verbosity: 1
+    forks: 1
+    timeout: 120
+    allow_simultaneous: false
+    ask_credential_on_launch: false
+    ask_inventory_on_launch: false
+    ask_variables_on_launch: false
+    ask_tags_on_launch: false
+    ask_skip_tags_on_launch: false
+    ask_limit_on_launch: false
+    ask_verbosity_on_launch: false
+    ask_execution_environment_on_launch: false
+    ask_labels_on_launch: false
+    ask_timeout_on_launch: false
+    ask_job_slice_count_on_launch: false
+    extra_vars:
+      e2e_variant: fixed
+      e2e_owner: platform
+    job_tags: ""
+    skip_tags: ""
+    limit: ""
+    notification_templates_started:
+      - aap-config-e2e-email
+    notification_templates_success:
+      - aap-config-e2e-email
+    notification_templates_error:
+      - aap-config-e2e-webhook
+    state: "{{ e2e_state | default('present') }}"
+
+  # Variant: ask_* on launch + survey
+  - name: aap-config-e2e-jt-survey
+    description: Ask-options + survey job template
+    organization: aap-config-e2e
+    project: aap-config-e2e-project
+    playbook: helloworld.yml
+    job_type: run
+    ask_inventory_on_launch: true
+    ask_credential_on_launch: true
+    ask_variables_on_launch: true
+    ask_tags_on_launch: true
+    ask_skip_tags_on_launch: true
+    ask_limit_on_launch: true
+    ask_verbosity_on_launch: true
+    ask_execution_environment_on_launch: true
+    ask_labels_on_launch: true
+    ask_timeout_on_launch: true
+    ask_job_slice_count_on_launch: true
+    allow_simultaneous: true
+    survey_enabled: true
+    survey_spec:
+      name: E2E survey
+      description: Platform E2E survey
+      spec:
+        - question_name: Target environment
+          question_description: Where to run
+          required: true
+          type: multiplechoice
+          variable: e2e_target_env
+          choices:
+            - dev
+            - qa
+            - prod
+          default: dev
+          new_question: true
+        - question_name: Owner email
+          question_description: Contact
+          required: false
+          type: text
+          variable: e2e_owner_email
+          default: e2e@example.com
+          min: 0
+          max: 256
+          new_question: true
+        - question_name: Replica count
+          question_description: Integer field
+          required: false
+          type: integer
+          variable: e2e_replicas
+          default: 1
+          min: 0
+          max: 10
+          new_question: true
+    labels:
+      - aap-config-e2e-dev
+    state: "{{ e2e_state | default('present') }}"
+
+  # Variant: check mode job type
+  - name: aap-config-e2e-jt-check
+    description: Check-mode job template
+    organization: aap-config-e2e
+    project: aap-config-e2e-project
+    inventory: aap-config-e2e-inventory
+    playbook: helloworld.yml
+    job_type: check
+    verbosity: 2
+    forks: 2
+    timeout: 60
+    credentials:
+      - aap-config-e2e-machine
+    labels:
+      - aap-config-e2e
+    extra_vars:
+      e2e_variant: check
+    state: "{{ e2e_state | default('present') }}"
+
+  # Keep classic smoke name for shared verify
+  - name: aap-config-e2e-job-template
+    description: Compat JT for shared verify
+    organization: aap-config-e2e
+    project: aap-config-e2e-project
+    inventory: aap-config-e2e-inventory
+    playbook: helloworld.yml
+    job_type: run
+    state: "{{ e2e_state | default('present') }}"

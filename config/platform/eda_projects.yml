@@ -1,0 +1,19 @@
+---
+eda_projects:
+  - name: aap-config-e2e-eda-project
+    description: E2E EDA project (no wait)
+    organization: aap-config-e2e
+    scm_type: git
+    scm_url: https://github.com/ansible/ansible-rulebook.git
+    scm_branch: main
+    credential: aap-config-e2e-scm
+    wait: false
+    state: "{{ e2e_state | default('present') }}"
+  - name: aap-config-e2e-eda-project-alt
+    description: Alternate EDA project URL
+    organization: aap-config-e2e
+    scm_type: git
+    scm_url: https://github.com/ansible/event-driven-ansible.git
+    scm_branch: main
+    wait: false
+    state: "{{ e2e_state | default('present') }}"

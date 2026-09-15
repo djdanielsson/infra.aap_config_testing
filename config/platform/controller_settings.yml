@@ -1,0 +1,17 @@
+---
+# Safe controller settings only — no auth, LDAP, URL base, logging aggregators, or capacity knobs.
+# Values are mild / near-default so CRC demo clusters stay usable after converge.
+controller_settings:
+  settings:
+    # Marker injected into job task environment (default is {})
+    AWX_TASK_ENV:
+      AAP_CONFIG_E2E: "platform"
+    # Keep activity stream on; enable for inventory sync (default false)
+    ACTIVITY_STREAM_ENABLED: true
+    ACTIVITY_STREAM_ENABLED_FOR_INVENTORY_SYNC: true
+    # Slightly above default (10); still low for a single-node CRC
+    SCHEDULE_MAX_JOBS: 15
+    # Secure recommended choice (AWX default)
+    ALLOW_JINJA_IN_EXTRA_VARS: template
+    ORG_ADMINS_CAN_SEE_ALL_USERS: true
+    UI_LIVE_UPDATES_ENABLED: true

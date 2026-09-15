@@ -1,0 +1,11 @@
+---
+# Repository create only — no sync against the remote.
+hub_collection_repositories:
+  - name: aap-config-e2e-community-repo
+    description: E2E collection repository backed by community remote
+    remote: aap-config-e2e-community
+    pulp_labels:
+      pipeline: approved
+    distribution:
+      state: present
+    state: "{{ e2e_state | default('present') }}"

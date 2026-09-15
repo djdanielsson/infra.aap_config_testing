@@ -1,0 +1,7 @@
+---
+# Remote create only — do not sync requirements in platform (side-effect / slow).
+hub_collection_remotes:
+  - name: aap-config-e2e-community
+    url: https://galaxy.ansible.com/
+    tls_validation: true
+    state: "{{ e2e_state | default('present') }}"

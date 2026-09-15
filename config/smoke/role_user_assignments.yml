@@ -1,0 +1,8 @@
+---
+# Optional DAB role grants (applied by dispatch after gateway org exists).
+gateway_role_user_assignments:
+  - role_definition: Organization Admin
+    user: "{{ aap_username | default('admin') }}"
+    object_ids:
+      - aap-config-e2e
+    state: "{{ e2e_state | default('present') }}"

@@ -1,0 +1,59 @@
+---
+# Apply aap_configuration_template against the local AAP from .cache/aap-env.yml.
+#
+#   make create                    # if needed
+#   make converge-template         # or SCENARIO=template make converge
+#
+# Env:
+#   AAP_CONFIGURATION_TEMPLATE_PATH  path to template repo (default: ../../forks/aap_configuration_template)
+#   AAP_CONFIG_ENV                     config/<env> subdirectory (default: dev)
+
+role_name_check: 0
+dependency:
+  name: galaxy
+  enabled: false
+driver:
+  name: default
+platforms:
+  - name: localhost
+provisioner:
+  name: ansible
+  env:
+    ANSIBLE_COLLECTIONS_PATH: ${MOLECULE_PROJECT_DIRECTORY}/.cache/collections
+    ANSIBLE_CONFIG: ${MOLECULE_PROJECT_DIRECTORY}/ansible.cfg
+    ANSIBLE_PYTHON_INTERPRETER: ${MOLECULE_PROJECT_DIRECTORY}/.venv/bin/python
+    PATH: ${MOLECULE_PROJECT_DIRECTORY}/.venv/bin:${PATH}
+    AAP_CONFIGURATION_E2E_PYTHON: ${MOLECULE_PROJECT_DIRECTORY}/.venv/bin/python
+    AAP_CONFIGURATION_TEMPLATE_PATH: ${AAP_CONFIGURATION_TEMPLATE_PATH}
+    AAP_CONFIG_ENV: ${AAP_CONFIG_ENV}
+    # Keep e2e plugins (aap_e2e_ensure) and template plugins (aap_config_vars).
+    ANSIBLE_LIBRARY: ${MOLECULE_PROJECT_DIRECTORY}/plugins/modules:${AAP_CONFIGURATION_TEMPLATE_PATH}/plugins/modules
+    ANSIBLE_ACTION_PLUGINS: ${AAP_CONFIGURATION_TEMPLATE_PATH}/plugins/action
+  config_options:
+    defaults:
+      gathering: explicit
+      host_key_checking: false
+      interpreter_python: ${MOLECULE_PROJECT_DIRECTORY}/.venv/bin/python
+  playbooks:
+    create: ../shared/create.yml
+    prepare: ../shared/prepare.yml
+    converge: ../shared/converge_template.yml
+    cleanup: ../shared/cleanup.yml
+    destroy: ../shared/destroy.yml
+  inventory:
+    host_vars:
+      localhost:
+        ansible_connection: local
+        ansible_python_interpreter: "{{ lookup('env', 'ANSIBLE_PYTHON_INTERPRETER') | default(lookup('env', 'MOLECULE_PROJECT_DIRECTORY') ~ '/.venv/bin/python', true) }}"
+    group_vars:
+      all:
+        aap_e2e_provision_crc: true
+        aap_e2e_provision_aap: true
+verifier:
+  name: ansible
+scenario:
+  test_sequence:
+    - syntax
+    - create
+    - prepare
+    - converge

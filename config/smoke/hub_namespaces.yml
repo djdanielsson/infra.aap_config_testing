@@ -1,0 +1,6 @@
+---
+hub_namespaces:
+  - name: aap_config_e2e
+    company: E2E
+    description: Isolated hub namespace for collection E2E
+    state: "{{ e2e_state | default('present') }}"

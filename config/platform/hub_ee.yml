@@ -1,0 +1,18 @@
+---
+# Create registry/repo metadata only — no sync/index (avoids long pulls / auth failures).
+hub_ee_registries:
+  - name: aap-config-e2e-quay
+    url: https://quay.io/
+    rate_limit: 100
+    download_concurrency: 5
+    tls_validation: false
+    state: "{{ e2e_state | default('present') }}"
+
+hub_ee_repositories:
+  - name: aap_config_e2e/e2e_ee
+    description: Local EE repository description for E2E
+    readme: |
+      # aap-config-e2e EE
+
+      Platform regression config repository (no remote sync).
+    state: "{{ e2e_state | default('present') }}"

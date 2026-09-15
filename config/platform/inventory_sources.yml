@@ -1,0 +1,16 @@
+---
+# Object create only — do not wait on sync (repo layout may not include inventory files).
+controller_inventory_sources:
+  - name: aap-config-e2e-invsrc-scm
+    inventory: aap-config-e2e-inventory-empty
+    organization: aap-config-e2e
+    description: SCM inventory source (no launch update)
+    source: scm
+    source_project: aap-config-e2e-invsrc-project
+    source_path: ""
+    overwrite: false
+    overwrite_vars: false
+    update_on_launch: false
+    update_cache_timeout: 0
+    wait: false
+    state: "{{ e2e_state | default('present') }}"

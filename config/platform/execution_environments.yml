@@ -1,0 +1,15 @@
+---
+controller_execution_environments:
+  - name: aap-config-e2e-ee
+    description: Always-pull EE for platform E2E
+    image: quay.io/ansible/awx-ee:latest
+    pull: always
+    organization: aap-config-e2e
+    credential: aap-config-e2e-registry
+    state: "{{ e2e_state | default('present') }}"
+  - name: aap-config-e2e-ee-missing
+    description: Missing-pull policy EE variant
+    image: quay.io/ansible/awx-ee:latest
+    pull: missing
+    organization: aap-config-e2e
+    state: "{{ e2e_state | default('present') }}"

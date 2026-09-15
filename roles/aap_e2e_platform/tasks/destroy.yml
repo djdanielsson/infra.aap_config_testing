@@ -1,0 +1,43 @@
+---
+- name: Skip destroy (default — leave CRC and AAP running)
+  ansible.builtin.debug:
+    msg: >-
+      No destroy actions requested (aap_e2e_destroy_aap=false, aap_e2e_destroy_crc=false).
+      Set AAP_E2E_DESTROY_AAP=true and/or AAP_E2E_DESTROY_CRC=true to tear down.
+  when:
+    - not aap_e2e_destroy_aap | bool
+    - not aap_e2e_destroy_crc | bool
+
+- name: Tear down platform
+  when: aap_e2e_destroy_aap | bool or aap_e2e_destroy_crc | bool
+  block:
+    - name: Include aap-demo resolution
+      ansible.builtin.include_tasks: resolve_aap_demo.yml
+
+    # AAP-only teardown: delete the AAP namespace (aap-demo clean).
+    # When CRC is also being destroyed, skip clean — destroy wipes the VM.
+    - name: Remove AAP operator deployment (aap-demo clean)
+      ansible.builtin.command:
+        argv: "{{ aap_e2e_demo_argv + ['clean'] }}"
+      environment: "{{ aap_e2e_demo_environment }}"
+      register: aap_e2e_clean
+      changed_when: aap_e2e_clean.rc == 0
+      failed_when: false
+      when:
+        - aap_e2e_destroy_aap | bool
+        - not aap_e2e_destroy_crc | bool
+
+    - name: Destroy CRC cluster (aap-demo destroy)
+      ansible.builtin.command:
+        argv: "{{ aap_e2e_demo_argv + ['destroy'] }}"
+      environment: "{{ aap_e2e_demo_environment }}"
+      register: aap_e2e_crc_destroy
+      changed_when: aap_e2e_crc_destroy.rc == 0
+      failed_when: false
+      when: aap_e2e_destroy_crc | bool
+
+    - name: Remove local AAP env file when platform was destroyed
+      ansible.builtin.file:
+        path: "{{ aap_e2e_env_path }}"
+        state: absent
+      when: aap_e2e_destroy_aap | bool or aap_e2e_destroy_crc | bool

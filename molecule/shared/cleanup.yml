@@ -1,0 +1,101 @@
+---
+# Molecule runs cleanup before destroy. When AAP/CRC teardown is requested,
+# skip API object removal — destroy.yml deletes the AAP namespace and/or CRC.
+- name: Remove E2E child objects
+  hosts: localhost
+  gather_facts: false
+  vars:
+    e2e_root: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') }}"
+    e2e_scenario: "{{ lookup('env', 'MOLECULE_SCENARIO_NAME') }}"
+    e2e_state: absent
+    platform_state: "{{ e2e_state }}"
+    aap_configuration_collect_logs: true
+    aap_configuration_async_delay: 3
+    assign_default_ee_to_org: false
+    assign_galaxy_credentials_to_org: false
+    assign_notification_templates_to_org: false
+    assign_instance_groups_to_org: false
+    aap_e2e_destroy_aap: "{{ lookup('env', 'AAP_E2E_DESTROY_AAP') | default('false', true) | bool }}"
+    aap_e2e_destroy_crc: "{{ lookup('env', 'AAP_E2E_DESTROY_CRC') | default('false', true) | bool }}"
+    aap_configuration_dispatcher_exclude_roles:
+      - gateway_organizations
+      - gateway_role_user_assignments
+  pre_tasks:
+    - name: Skip config cleanup when platform teardown is requested
+      ansible.builtin.meta: end_play
+      when: aap_e2e_destroy_aap | bool or aap_e2e_destroy_crc | bool
+
+    - name: Check AAP env file exists
+      ansible.builtin.stat:
+        path: "{{ e2e_root }}/.cache/aap-env.yml"
+      register: e2e_env_stat
+
+    - name: Skip cleanup when AAP env is unavailable
+      ansible.builtin.meta: end_play
+      when: not e2e_env_stat.stat.exists
+
+    - name: Load AAP connection vars
+      ansible.builtin.include_vars:
+        file: "{{ e2e_root }}/.cache/aap-env.yml"
+
+    - name: Load scenario config
+      ansible.builtin.include_vars:
+        dir: "{{ e2e_root }}/config/{{ e2e_scenario }}"
+        extensions: [yml, yaml]
+  tasks:
+    - name: Dispatch cleanup (children first)
+      ansible.builtin.include_role:
+        name: infra.aap_configuration.dispatch
+
+- name: Remove E2E organization
+  hosts: localhost
+  gather_facts: false
+  vars:
+    e2e_root: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') }}"
+    e2e_scenario: "{{ lookup('env', 'MOLECULE_SCENARIO_NAME') }}"
+    e2e_state: absent
+    platform_state: "{{ e2e_state }}"
+    aap_configuration_collect_logs: true
+    aap_configuration_async_delay: 3
+    assign_default_ee_to_org: false
+    assign_galaxy_credentials_to_org: false
+    assign_notification_templates_to_org: false
+    assign_instance_groups_to_org: false
+    aap_e2e_destroy_aap: "{{ lookup('env', 'AAP_E2E_DESTROY_AAP') | default('false', true) | bool }}"
+    aap_e2e_destroy_crc: "{{ lookup('env', 'AAP_E2E_DESTROY_CRC') | default('false', true) | bool }}"
+    aap_configuration_dispatcher_roles:
+      - role: gateway_organizations
+        var: aap_organizations
+        tags:
+          - organizations
+          - gateway_organizations
+        assign_galaxy_credentials_to_org: false
+        assign_default_ee_to_org: false
+        assign_notification_templates_to_org: false
+        assign_instance_groups_to_org: false
+  pre_tasks:
+    - name: Skip config cleanup when platform teardown is requested
+      ansible.builtin.meta: end_play
+      when: aap_e2e_destroy_aap | bool or aap_e2e_destroy_crc | bool
+
+    - name: Check AAP env file exists
+      ansible.builtin.stat:
+        path: "{{ e2e_root }}/.cache/aap-env.yml"
+      register: e2e_env_stat
+
+    - name: Skip cleanup when AAP env is unavailable
+      ansible.builtin.meta: end_play
+      when: not e2e_env_stat.stat.exists
+
+    - name: Load AAP connection vars
+      ansible.builtin.include_vars:
+        file: "{{ e2e_root }}/.cache/aap-env.yml"
+
+    - name: Load scenario config
+      ansible.builtin.include_vars:
+        dir: "{{ e2e_root }}/config/{{ e2e_scenario }}"
+        extensions: [yml, yaml]
+  tasks:
+    - name: Dispatch cleanup (organization)
+      ansible.builtin.include_role:
+        name: infra.aap_configuration.dispatch

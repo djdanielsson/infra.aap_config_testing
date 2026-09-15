@@ -1,0 +1,15 @@
+---
+controller_inventories:
+  - name: aap-config-e2e-inventory
+    organization: aap-config-e2e
+    description: Primary E2E inventory
+    variables:
+      e2e_env: platform
+      ansible_connection: local
+    state: "{{ e2e_state | default('present') }}"
+  - name: aap-config-e2e-inventory-empty
+    organization: aap-config-e2e
+    description: Secondary inventory for ask_inventory / sources
+    variables:
+      e2e_role: secondary
+    state: "{{ e2e_state | default('present') }}"

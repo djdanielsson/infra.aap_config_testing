@@ -1,0 +1,29 @@
+---
+# Molecule project root (set by Molecule during test runs).
+aap_e2e_project_root: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | default(playbook_dir | dirname | dirname, true) }}"
+
+aap_e2e_env_path: "{{ aap_e2e_project_root }}/.cache/aap-env.yml"
+aap_e2e_deploy_timeout: 5400
+aap_e2e_pull_secret_path: "{{ lookup('env', 'HOME') }}/.aap-demo/pull-secret.txt"
+aap_e2e_kubeconfig: "{{ lookup('env', 'HOME') }}/.aap-demo/kubeconfig.microshift"
+aap_e2e_aap_demo_namespace: aap-operator
+
+# Create (Molecule create): provision OpenShift Local and/or AAP.
+aap_e2e_skip_provision: "{{ lookup('env', 'AAP_E2E_SKIP_PROVISION') | default('false', true) | bool }}"
+aap_e2e_provision_crc: true
+aap_e2e_provision_aap: true
+
+# Destroy (Molecule destroy): remove AAP and/or CRC independently.
+aap_e2e_destroy_aap: "{{ lookup('env', 'AAP_E2E_DESTROY_AAP') | default('false', true) | bool }}"
+aap_e2e_destroy_crc: "{{ lookup('env', 'AAP_E2E_DESTROY_CRC') | default('false', true) | bool }}"
+
+# Optional explicit aap-demo path (otherwise resolved in tasks).
+aap_e2e_aap_demo_bin: "{{ lookup('env', 'AAP_DEMO_BIN') | default('', true) }}"
+
+# Passed through to aap-demo (see README).
+aap_e2e_crc_cpus: "{{ lookup('env', 'AAP_E2E_CRC_CPUS') | default('8', true) }}"
+aap_e2e_crc_memory_mb: "{{ lookup('env', 'AAP_E2E_CRC_MEMORY_MB') | default('16384', true) }}"
+aap_e2e_crc_disk_gb: "{{ lookup('env', 'AAP_E2E_CRC_DISK_GB') | default('120', true) }}"
+aap_e2e_crc_pv_size_gb: "{{ lookup('env', 'AAP_E2E_CRC_PV_SIZE_GB') | default('70', true) }}"
+aap_e2e_crc_version: "{{ lookup('env', 'AAP_E2E_CRC_VERSION') | default(lookup('env', 'CRC_VERSION') | default('', true), true) }}"
+aap_e2e_trust_ca: "{{ lookup('env', 'AAP_E2E_TRUST_CA') | default('false', true) | bool }}"
